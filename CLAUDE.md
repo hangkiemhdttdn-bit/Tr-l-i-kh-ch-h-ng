@@ -21,7 +21,9 @@ npm run start    # chạy bản đã build
 npm run lint     # eslint (config: eslint.config.mjs, dùng eslint-config-next)
 ```
 
-Chưa có test framework. Biến môi trường: cần `GEMINI_API_KEY` trong `.env` để chatbot hoạt động (server-side, KHÔNG đặt tiền tố `NEXT_PUBLIC_`); tuỳ chọn `GEMINI_MODEL` để đổi model (mặc định `gemini-3.5-flash-lite`). Supabase/site URL sẽ dùng từ Tuần 3+ (xem `.env.example`).
+Chưa có test framework. Biến môi trường (tất cả server-side, KHÔNG `NEXT_PUBLIC_`):
+- `GEMINI_API_KEY` (bắt buộc cho chatbot), `GEMINI_MODEL` (tuỳ chọn, mặc định `gemini-3.5-flash-lite`).
+- Lưu lịch sử chat cần: `SUPABASE_URL`, `SUPABASE_SECRET_KEY` (dùng key MỚI `sb_secret_...`, không phải service_role cũ). `SUPABASE_PUBLISHABLE_KEY`/`SUPABASE_JWKS_URL` để dành cho auth sau. Thiếu các biến này thì chatbot vẫn trả lời, chỉ không lưu lịch sử (degrade an toàn).
 
 ## Kiến trúc
 
@@ -52,6 +54,14 @@ Chưa có test framework. Biến môi trường: cần `GEMINI_API_KEY` trong `.
 - **Chatbot chỉ được trả lời trong phạm vi bộ QnA** `qnaEntries` (kiểu `QnaEntry`) trong [`lib/mock-data.ts`](lib/mock-data.ts). Route dựng `systemInstruction` từ chính mảng này và ràng buộc model không thêm thông tin ngoài phạm vi. **Muốn đổi câu hỏi/câu trả lời thì sửa `qnaEntries`** — cả chatbot lẫn các nút gợi ý trong widget đều lấy từ đó, không viết lặp.
 - Body gửi lên: `{ messages: {from:"bot"|"user", text}[] }` (cả lịch sử hội thoại để giữ mạch). Route map `from` → `role` của Gemini (`user`/`model`) và bỏ các lượt `model` đứng đầu (Gemini yêu cầu lượt đầu là `user`).
 - Lỗi từ Gemini (kể cả 401 do sai key) được `console.error` ở server; client chỉ hiển thị thông báo thân thiện. API key đọc từ `process.env.GEMINI_API_KEY`, không lộ ra client.
+
+### Lưu lịch sử chat vào Supabase (server-only)
+
+- **Dữ liệu riêng tư, chỉ server truy cập.** Trình duyệt KHÔNG đụng thẳng Supabase — luôn đi qua route Next.js. Helper [`lib/supabase.ts`](lib/supabase.ts) dùng `createAdminClient` (package `@supabase/server`, key MỚI `SUPABASE_SECRET_KEY`) nên **chỉ được import ở server**; secret key không bao giờ lộ ra client. Kiểu DB viết tay ở [`lib/database.types.ts`](lib/database.types.ts).
+- **Bảo mật bằng RLS**: 2 bảng `conversations`/`messages` bật Row Level Security, KHÔNG có policy công khai → anon/publishable (trình duyệt) bị chặn hoàn toàn; secret key (admin) vượt RLS nên server đọc/ghi được. Bảng còn cần `grant ... to service_role`.
+- **Luồng**: `POST /api/chat` sau khi Gemini đáp thì ghi câu hỏi + trả lời vào `messages` (tạo `conversation` nếu chưa có), trả `conversationId`. Client lưu `conversationId` vào `localStorage` (key `duhoc24_chat_conversation_id`) → không mất khi tắt trình duyệt. Khi mở lại, widget gọi `GET /api/chat?conversationId=...` để nạp lịch sử **từ Supabase** thay vì bộ nhớ tạm.
+- Mọi thao tác DB bọc try/catch: Supabase lỗi thì chat vẫn trả lời bình thường.
+- **Trang admin** [`app/admin/conversations/page.tsx`](app/admin/conversations/page.tsx) là Server Component (`export const dynamic = "force-dynamic"`), gọi `getConversations()` đọc thẳng Supabase ở server rồi render danh sách hội thoại + chi tiết từng tin nhắn (dùng `<details>` gập/mở). Lưu ý: `/admin` hiện CHƯA có auth (để Tuần 6) — ai vào cũng xem được, cần khoá lại khi lên thật.
 
 ### UI primitives
 

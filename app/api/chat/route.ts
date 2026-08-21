@@ -1,4 +1,10 @@
 import { qnaEntries } from "@/lib/mock-data";
+import {
+  createConversation,
+  conversationExists,
+  saveMessages,
+  getMessages,
+} from "@/lib/supabase";
 
 // Model có thể đổi qua biến môi trường GEMINI_MODEL; mặc định dùng Flash-Lite.
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-3.5-flash-lite";
@@ -32,7 +38,7 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: { messages?: ClientMessage[] };
+  let body: { messages?: ClientMessage[]; conversationId?: string | null };
   try {
     body = await request.json();
   } catch {
@@ -106,5 +112,37 @@ export async function POST(request: Request) {
     );
   }
 
-  return Response.json({ text });
+  // Lưu lịch sử hội thoại vào Supabase (server-side). Bọc try/catch để nếu
+  // Supabase lỗi thì vẫn trả lời khách bình thường, không làm hỏng chat.
+  let conversationId =
+    typeof body.conversationId === "string" ? body.conversationId : null;
+  const lastUser = [...(Array.isArray(body.messages) ? body.messages : [])]
+    .reverse()
+    .find((m) => m?.from === "user" && m.text?.trim());
+  try {
+    // Nếu client gửi id cũ nhưng hội thoại đã bị xoá → bỏ để tạo mới.
+    if (conversationId && !(await conversationExists(conversationId))) {
+      conversationId = null;
+    }
+    if (!conversationId) conversationId = await createConversation();
+    if (conversationId && lastUser?.text) {
+      await saveMessages(conversationId, [
+        { from: "user", text: lastUser.text },
+        { from: "bot", text },
+      ]);
+    }
+  } catch (e) {
+    console.error("Lưu lịch sử chat thất bại:", (e as Error).message);
+  }
+
+  return Response.json({ text, conversationId });
+}
+
+// Đọc lại lịch sử một cuộc hội thoại từ Supabase (server-side, dùng secret key).
+// Trình duyệt gọi qua route này chứ KHÔNG truy cập thẳng Supabase.
+export async function GET(request: Request) {
+  const conversationId = new URL(request.url).searchParams.get("conversationId");
+  if (!conversationId) return Response.json({ messages: [] });
+  const messages = await getMessages(conversationId);
+  return Response.json({ messages });
 }

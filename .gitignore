@@ -42,3 +42,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agent skills (cài lại bằng: npx skills add supabase/server)
+.agents/
+.claude/skills/
+skills-lock.json

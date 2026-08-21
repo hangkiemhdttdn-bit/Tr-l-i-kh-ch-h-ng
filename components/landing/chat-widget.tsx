@@ -14,16 +14,37 @@ interface Message {
 // Vài câu hỏi gợi ý, lấy từ chính bộ QnA mà chatbot được phép trả lời.
 const quickQuestions = qnaEntries.slice(0, 4).map((e) => e.question);
 
-const initialMessages: Message[] = [
-  { from: "bot", text: "Chào bạn! Mình là trợ lý ảo của DuHoc24, bạn cần hỗ trợ gì về hồ sơ du học?" },
-];
+const greeting: Message = {
+  from: "bot",
+  text: "Chào bạn! Mình là trợ lý ảo của DuHoc24, bạn cần hỗ trợ gì về hồ sơ du học?",
+};
+
+// Khóa lưu id cuộc hội thoại trong localStorage → không mất khi tắt trình duyệt.
+const CONV_KEY = "duhoc24_chat_conversation_id";
 
 export function ChatWidget() {
   const [open, setOpen] = React.useState(false);
-  const [messages, setMessages] = React.useState<Message[]>(initialMessages);
+  const [messages, setMessages] = React.useState<Message[]>([greeting]);
   const [input, setInput] = React.useState("");
   const [loading, setLoading] = React.useState(false);
+  const [conversationId, setConversationId] = React.useState<string | null>(null);
   const scrollRef = React.useRef<HTMLDivElement>(null);
+
+  // Khi mở trang: nếu đã có id cuộc hội thoại cũ, nạp lại lịch sử TỪ SUPABASE
+  // (qua route server, không đọc trực tiếp DB) thay vì mất trắng như trước.
+  React.useEffect(() => {
+    const saved = localStorage.getItem(CONV_KEY);
+    if (!saved) return;
+    fetch(`/api/chat?conversationId=${encodeURIComponent(saved)}`)
+      .then((r) => r.json())
+      .then((d) => {
+        setConversationId(saved);
+        if (Array.isArray(d.messages) && d.messages.length > 0) {
+          setMessages([greeting, ...(d.messages as Message[])]);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Luôn cuộn xuống tin nhắn mới nhất.
   React.useEffect(() => {
@@ -42,9 +63,14 @@ export function ChatWidget() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: nextMessages }),
+        body: JSON.stringify({ messages: nextMessages, conversationId }),
       });
       const data = await res.json().catch(() => ({}));
+      // Lưu lại id cuộc hội thoại server trả về để các lượt sau ghi cùng một chỗ.
+      if (typeof data?.conversationId === "string" && data.conversationId !== conversationId) {
+        setConversationId(data.conversationId);
+        localStorage.setItem(CONV_KEY, data.conversationId);
+      }
       const reply =
         res.ok && data?.text
           ? (data.text as string)
