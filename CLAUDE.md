@@ -51,7 +51,8 @@ Chưa có test framework. Biến môi trường (tất cả server-side, KHÔNG 
 ### Chatbot Gemini (trang chủ)
 
 - Luồng: [`components/landing/chat-widget.tsx`](components/landing/chat-widget.tsx) (client) `fetch` POST tới [`app/api/chat/route.ts`](app/api/chat/route.ts) (route handler, server) → gọi REST API Gemini `generativelanguage.googleapis.com` bằng header `x-goog-api-key`.
-- **Chatbot chỉ được trả lời trong phạm vi bộ QnA** `qnaEntries` (kiểu `QnaEntry`) trong [`lib/mock-data.ts`](lib/mock-data.ts). Route dựng `systemInstruction` từ chính mảng này và ràng buộc model không thêm thông tin ngoài phạm vi. **Muốn đổi câu hỏi/câu trả lời thì sửa `qnaEntries`** — cả chatbot lẫn các nút gợi ý trong widget đều lấy từ đó, không viết lặp.
+- **Hành vi chatbot do `systemInstruction` viết thẳng trong `app/api/chat/route.ts` quyết định.** Hiện tại là một persona "Trợ lý Tư vấn Du học" dẫn dắt hội thoại có cấu trúc (hỏi nước → bậc học/ngành → giới thiệu dịch vụ → thu thập họ tên/email/SĐT → mời đặt lịch), mỗi lượt chỉ hỏi 1 câu; **muốn đổi cách bot trò chuyện thì sửa chuỗi `systemInstruction` này**. (Trước đây bot bị giới hạn cứng trong bộ QnA — đã bỏ.)
+- `qnaEntries` (kiểu `QnaEntry`) trong [`lib/mock-data.ts`](lib/mock-data.ts) giờ **chỉ còn dùng cho các nút câu hỏi gợi ý** trong widget, không còn nhét vào `systemInstruction`.
 - Body gửi lên: `{ messages: {from:"bot"|"user", text}[] }` (cả lịch sử hội thoại để giữ mạch). Route map `from` → `role` của Gemini (`user`/`model`) và bỏ các lượt `model` đứng đầu (Gemini yêu cầu lượt đầu là `user`).
 - Lỗi từ Gemini (kể cả 401 do sai key) được `console.error` ở server; client chỉ hiển thị thông báo thân thiện. API key đọc từ `process.env.GEMINI_API_KEY`, không lộ ra client.
 
