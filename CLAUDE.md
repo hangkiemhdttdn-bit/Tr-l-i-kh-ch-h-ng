@@ -21,7 +21,7 @@ npm run start    # chạy bản đã build
 npm run lint     # eslint (config: eslint.config.mjs, dùng eslint-config-next)
 ```
 
-Chưa có test framework. Biến môi trường: cần `GEMINI_API_KEY` trong `.env` để chatbot hoạt động (server-side, KHÔNG đặt tiền tố `NEXT_PUBLIC_`); tuỳ chọn `GEMINI_MODEL` để đổi model (mặc định `gemini-2.5-flash-lite`). Supabase/site URL sẽ dùng từ Tuần 3+ (xem `.env.example`).
+Chưa có test framework. Biến môi trường: cần `GEMINI_API_KEY` trong `.env` để chatbot hoạt động (server-side, KHÔNG đặt tiền tố `NEXT_PUBLIC_`); tuỳ chọn `GEMINI_MODEL` để đổi model (mặc định `gemini-3.5-flash-lite`). Supabase/site URL sẽ dùng từ Tuần 3+ (xem `.env.example`).
 
 ## Kiến trúc
 

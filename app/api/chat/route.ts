@@ -1,7 +1,7 @@
 import { qnaEntries } from "@/lib/mock-data";
 
 // Model có thể đổi qua biến môi trường GEMINI_MODEL; mặc định dùng Flash-Lite.
-const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash-lite";
+const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-3.5-flash-lite";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 // Dựng bộ hỏi–đáp thành text để nhét vào systemInstruction.
