@@ -1,9 +1,11 @@
+import { after } from "next/server";
 import {
   createConversation,
   conversationExists,
   saveMessages,
   getMessages,
 } from "@/lib/supabase";
+import { notifyLeadIfCaptured } from "@/lib/lead-notify";
 
 // Model có thể đổi qua biến môi trường GEMINI_MODEL; mặc định dùng Flash-Lite.
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-3.5-flash-lite";
@@ -145,6 +147,13 @@ export async function POST(request: Request) {
   } catch (e) {
     console.error("Lưu lịch sử chat thất bại:", (e as Error).message);
   }
+
+  // Chạy nền SAU khi đã trả lời khách: nếu khách vừa để lại liên hệ → báo Make.
+  const fullConversation = [
+    ...(Array.isArray(body.messages) ? body.messages : []),
+    { from: "bot" as const, text },
+  ];
+  after(() => notifyLeadIfCaptured(fullConversation, conversationId));
 
   return Response.json({ text, conversationId });
 }
