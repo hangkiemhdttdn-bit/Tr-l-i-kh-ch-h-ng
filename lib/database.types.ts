@@ -41,6 +41,33 @@ export type Database = {
           },
         ];
       };
+      schools: {
+        Row: {
+          id: string;
+          name: string;
+          country: string;
+          min_gpa: number;
+          min_ielts: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          country: string;
+          min_gpa: number;
+          min_ielts: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          country?: string;
+          min_gpa?: number;
+          min_ielts?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

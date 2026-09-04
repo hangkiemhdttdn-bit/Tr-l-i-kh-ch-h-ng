@@ -138,3 +138,33 @@ export async function getMessages(conversationId: string): Promise<DbMessage[]> 
     text: r.text as string,
   }));
 }
+
+export interface DbSchool {
+  id: string;
+  name: string;
+  country: string;
+  minGpa: number;
+  minIelts: number;
+}
+
+// Lấy danh sách trường tham chiếu (dữ liệu công khai) từ Supabase.
+export async function getSchools(): Promise<DbSchool[]> {
+  const admin = getAdmin();
+  if (!admin) return [];
+  const { data, error } = await admin
+    .from("schools")
+    .select("id, name, country, min_gpa, min_ielts")
+    .order("country", { ascending: true })
+    .order("name", { ascending: true });
+  if (error) {
+    console.error("Lỗi đọc schools:", error.message);
+    return [];
+  }
+  return (data ?? []).map((s) => ({
+    id: s.id,
+    name: s.name,
+    country: s.country,
+    minGpa: Number(s.min_gpa),
+    minIelts: Number(s.min_ielts),
+  }));
+}
