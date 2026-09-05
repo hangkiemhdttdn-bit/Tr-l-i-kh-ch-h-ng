@@ -20,12 +20,18 @@ interface ExtractedLead {
   goi: string;
 }
 
-// Payload chuẩn gửi sang Make: chỉ 4 trường.
+// Payload chuẩn gửi sang Make: 4 trường.
 export interface LeadPayload {
   email: string;
   soDienThoai: string;
   goi: string;
   gia: string;
+}
+
+// Payload khi DUYỆT: kèm thông tin đăng nhập ảo cho khách.
+export interface ApprovePayload extends LeadPayload {
+  linkDangNhap: string;
+  matKhau: string;
 }
 
 // POST payload sang 1 webhook Make. Trả true nếu Make nhận (2xx).
@@ -62,7 +68,7 @@ export function sendLeadWebhook(payload: LeadPayload): Promise<boolean> {
 }
 
 // Webhook khi admin DUYỆT yêu cầu → Make tạo tài khoản + gửi mail đăng nhập.
-export function sendApproveWebhook(payload: LeadPayload): Promise<boolean> {
+export function sendApproveWebhook(payload: ApprovePayload): Promise<boolean> {
   return postWebhook(MAKE_APPROVE_WEBHOOK_URL, payload, "MAKE_APPROVE_WEBHOOK_URL (duyệt)");
 }
 
