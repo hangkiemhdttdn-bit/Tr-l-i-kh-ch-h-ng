@@ -46,12 +46,26 @@ export function QuoteForm() {
   const [email, setEmail] = React.useState("");
   const [phone, setPhone] = React.useState("");
   const [submitted, setSubmitted] = React.useState(false);
+  const [submitting, setSubmitting] = React.useState(false);
 
   const chosenPackage = servicePackages.find((p) => p.id === selectedPackage)!;
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setSubmitted(true);
+    setSubmitting(true);
+    try {
+      // Gửi yêu cầu báo giá sang server → server bắn webhook Make (email báo giá).
+      await fetch("/api/quote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, phone, packageId: selectedPackage }),
+      });
+    } catch {
+      // Vẫn hiện xác nhận; lỗi webhook (nếu có) đã được log ở server.
+    } finally {
+      setSubmitting(false);
+      setSubmitted(true);
+    }
   }
 
   return (
@@ -176,8 +190,8 @@ export function QuoteForm() {
               </div>
             </div>
 
-            <Button type="submit" size="lg" className="w-full sm:w-auto">
-              Nhận báo giá
+            <Button type="submit" size="lg" className="w-full sm:w-auto" disabled={submitting}>
+              {submitting ? "Đang gửi..." : "Nhận báo giá"}
             </Button>
 
             {submitted && (

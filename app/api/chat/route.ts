@@ -153,7 +153,7 @@ export async function POST(request: Request) {
     ...(Array.isArray(body.messages) ? body.messages : []),
     { from: "bot" as const, text },
   ];
-  after(() => notifyLeadIfCaptured(fullConversation, conversationId));
+  after(() => notifyLeadIfCaptured(fullConversation));
 
   return Response.json({ text, conversationId });
 }

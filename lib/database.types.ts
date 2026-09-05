@@ -68,6 +68,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      requests: {
+        Row: {
+          id: string;
+          email: string;
+          phone: string;
+          package_id: string;
+          price: number;
+          status: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          email: string;
+          phone: string;
+          package_id: string;
+          price: number;
+          status?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          email?: string;
+          phone?: string;
+          package_id?: string;
+          price?: number;
+          status?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

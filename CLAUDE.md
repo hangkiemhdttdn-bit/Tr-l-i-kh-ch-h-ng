@@ -24,7 +24,7 @@ npm run lint     # eslint (config: eslint.config.mjs, dùng eslint-config-next)
 Chưa có test framework. Biến môi trường (tất cả server-side, KHÔNG `NEXT_PUBLIC_`):
 - `GEMINI_API_KEY` (bắt buộc cho chatbot), `GEMINI_MODEL` (tuỳ chọn, mặc định `gemini-3.5-flash-lite`).
 - Lưu lịch sử chat cần: `SUPABASE_URL`, `SUPABASE_SECRET_KEY` (dùng key MỚI `sb_secret_...`, không phải service_role cũ). `SUPABASE_PUBLISHABLE_KEY`/`SUPABASE_JWKS_URL` để dành cho auth sau. Thiếu các biến này thì chatbot vẫn trả lời, chỉ không lưu lịch sử (degrade an toàn).
-- `MAKE_WEBHOOK_URL` (tuỳ chọn): webhook Make.com nhận thông báo lead khi khách để lại email/SĐT (xem `lib/lead-notify.ts`). Thiếu thì bỏ qua, không ảnh hưởng chat.
+- `MAKE_WEBHOOK_URL` (tuỳ chọn): webhook Make nhận lead/báo giá khi khách để lại email/SĐT (form hoặc chat). `MAKE_APPROVE_WEBHOOK_URL` (tuỳ chọn): webhook khi admin DUYỆT yêu cầu → Make tạo tài khoản + gửi mail đăng nhập. Cả hai xem `lib/lead-notify.ts`; thiếu thì bỏ qua.
 
 ## Kiến trúc
 
@@ -63,7 +63,11 @@ Chưa có test framework. Biến môi trường (tất cả server-side, KHÔNG 
 - **Bảo mật bằng RLS**: 2 bảng `conversations`/`messages` bật Row Level Security, KHÔNG có policy công khai → anon/publishable (trình duyệt) bị chặn hoàn toàn; secret key (admin) vượt RLS nên server đọc/ghi được. Bảng còn cần `grant ... to service_role`.
 - **Luồng**: `POST /api/chat` sau khi Gemini đáp thì ghi câu hỏi + trả lời vào `messages` (tạo `conversation` nếu chưa có), trả `conversationId`. Client lưu `conversationId` vào `localStorage` (key `duhoc24_chat_conversation_id`) → không mất khi tắt trình duyệt. Khi mở lại, widget gọi `GET /api/chat?conversationId=...` để nạp lịch sử **từ Supabase** thay vì bộ nhớ tạm.
 - Mọi thao tác DB bọc try/catch: Supabase lỗi thì chat vẫn trả lời bình thường.
-- **Thông báo lead (Tuần 5)**: sau khi trả lời khách, route gọi `after()` (từ `next/server`) chạy nền `notifyLeadIfCaptured()` trong [`lib/lead-notify.ts`](lib/lead-notify.ts). Khi tin nhắn khách mới nhất có email/SĐT (gate bằng regex để không gọi mỗi lượt) → dùng Gemini trích xuất lead có cấu trúc → POST sang `MAKE_WEBHOOK_URL`. Chạy nền nên không làm chậm chat.
+- **Thông báo lead (Tuần 5)** — payload webhook CHỈ gồm 4 trường: `email`, `soDienThoai`, `goi`, `gia`. Hàm gửi chung là `sendLeadWebhook()` trong [`lib/lead-notify.ts`](lib/lead-notify.ts). Có **2 nguồn** kích hoạt:
+  - **Form "Nhận báo giá"** ([`components/landing/quote-form.tsx`](components/landing/quote-form.tsx)) → POST [`app/api/quote/route.ts`](app/api/quote/route.ts) → tính `goi`/`gia` từ `servicePackages` → `sendLeadWebhook`. Đây là nguồn chính khách để lại liên hệ.
+  - **Chat** (khi khách để lại email/SĐT): route chat gọi `after()` chạy nền `notifyLeadIfCaptured()` → Gemini trích xuất → `sendLeadWebhook`. Không làm chậm chat.
+  - `MAKE_WEBHOOK_URL` đọc server-side, không lộ ra client. Bên Make: Webhook → Gmail (gửi khách) → Google Sheets.
+- **Yêu cầu + Duyệt (Tuần 5)**: form báo giá cũng lưu 1 dòng vào bảng `requests` (Supabase, server-only) qua `saveRequest()`. Trang [`app/admin/requests/page.tsx`](app/admin/requests/page.tsx) (Server Component, force-dynamic) đọc `getRequests()`; nút Duyệt/Từ chối là client component [`components/admin/request-actions.tsx`](components/admin/request-actions.tsx) → POST [`app/api/requests/route.ts`](app/api/requests/route.ts) → đổi trạng thái; khi **Duyệt** thì gọi `sendApproveWebhook()` bắn sang `MAKE_APPROVE_WEBHOOK_URL` để Make tạo tài khoản + gửi mail đăng nhập.
 - **Trang admin** [`app/admin/conversations/page.tsx`](app/admin/conversations/page.tsx) là Server Component (`export const dynamic = "force-dynamic"`), gọi `getConversations()` đọc thẳng Supabase ở server rồi render danh sách hội thoại + chi tiết từng tin nhắn (dùng `<details>` gập/mở). Lưu ý: `/admin` hiện CHƯA có auth (để Tuần 6) — ai vào cũng xem được, cần khoá lại khi lên thật.
 
 ### UI primitives

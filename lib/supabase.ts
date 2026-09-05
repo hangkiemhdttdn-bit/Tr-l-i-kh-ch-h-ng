@@ -168,3 +168,97 @@ export async function getSchools(): Promise<DbSchool[]> {
     minIelts: Number(s.min_ielts),
   }));
 }
+
+export interface DbRequest {
+  id: string;
+  email: string;
+  phone: string;
+  packageId: string;
+  price: number;
+  status: string;
+  createdAt: string;
+}
+
+const REQUEST_COLS = "id, email, phone, package_id, price, status, created_at";
+
+function mapRequest(r: {
+  id: string;
+  email: string;
+  phone: string;
+  package_id: string;
+  price: number;
+  status: string;
+  created_at: string;
+}): DbRequest {
+  return {
+    id: r.id,
+    email: r.email,
+    phone: r.phone,
+    packageId: r.package_id,
+    price: Number(r.price),
+    status: r.status,
+    createdAt: r.created_at,
+  };
+}
+
+// Lưu 1 yêu cầu báo giá (từ form) vào bảng requests, trạng thái chờ duyệt.
+export async function saveRequest(input: {
+  email: string;
+  phone: string;
+  packageId: string;
+  price: number;
+}): Promise<string | null> {
+  const admin = getAdmin();
+  if (!admin) return null;
+  const { data, error } = await admin
+    .from("requests")
+    .insert({
+      email: input.email,
+      phone: input.phone,
+      package_id: input.packageId,
+      price: input.price,
+      status: "cho_duyet",
+    })
+    .select("id")
+    .single();
+  if (error) {
+    console.error("Lỗi lưu request:", error.message);
+    return null;
+  }
+  return data.id as string;
+}
+
+// Đọc tất cả yêu cầu (mới nhất trước) — cho trang admin.
+export async function getRequests(): Promise<DbRequest[]> {
+  const admin = getAdmin();
+  if (!admin) return [];
+  const { data, error } = await admin
+    .from("requests")
+    .select(REQUEST_COLS)
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.error("Lỗi đọc requests:", error.message);
+    return [];
+  }
+  return (data ?? []).map(mapRequest);
+}
+
+// Đổi trạng thái 1 yêu cầu; trả về bản ghi sau khi đổi (để bắn webhook duyệt).
+export async function setRequestStatus(
+  id: string,
+  status: string,
+): Promise<DbRequest | null> {
+  const admin = getAdmin();
+  if (!admin) return null;
+  const { data, error } = await admin
+    .from("requests")
+    .update({ status })
+    .eq("id", id)
+    .select(REQUEST_COLS)
+    .single();
+  if (error) {
+    console.error("Lỗi cập nhật request:", error.message);
+    return null;
+  }
+  return mapRequest(data);
+}
